@@ -19,10 +19,13 @@ from utils.functions import MovingAverage, make_net
 
 # This is required for Pytorch 1.0.1 on Windows to initialize Cuda on some driver versions.
 # See the bug report here: https://github.com/pytorch/pytorch/issues/17108
-torch.cuda.current_device()
+# torch.cuda.current_device()
 
 # As of March 10, 2019, Pytorch DataParallel still doesn't support JIT Script Modules
-use_jit = torch.cuda.device_count() <= 1
+if torch.cuda.is_available():
+    torch.cuda.current_device()
+# use_jit = torch.cuda.device_count() <= 1
+use_jit = not torch.cuda.is_available() or torch.cuda.device_count() <= 1
 if not use_jit:
     print('Multiple GPUs detected! Turning off JIT.')
 
@@ -474,9 +477,12 @@ class Yolact(nn.Module):
         """ Saves the model's weights using compression because the file sizes were getting too big. """
         torch.save(self.state_dict(), path)
     
-    def load_weights(self, path):
+    def load_weights(self, path, map_location=None):
         """ Loads weights from a compressed save file. """
-        state_dict = torch.load(path)
+        if map_location is None:
+            state_dict = torch.load(path)
+        else:
+            state_dict = torch.load(path, map_location=map_location)
 
         # For backward compatability, remove these (the new variable is called layers)
         for key in list(state_dict.keys()):
@@ -642,16 +648,17 @@ class Yolact(nn.Module):
         if proto_out is not None:
             pred_outs['proto'] = proto_out
 
-        if self.training:
-            # For the extra loss functions
-            if cfg.use_class_existence_loss:
-                pred_outs['classes'] = self.class_existence_fc(outs[-1].mean(dim=(2, 3)))
-
-            if cfg.use_semantic_segmentation_loss:
-                pred_outs['segm'] = self.semantic_seg_conv(outs[0])
-
-            return pred_outs
-        else:
+        # if self.training:
+        #     # For the extra loss functions
+        #     if cfg.use_class_existence_loss:
+        #         pred_outs['classes'] = self.class_existence_fc(outs[-1].mean(dim=(2, 3)))
+        #
+        #     if cfg.use_semantic_segmentation_loss:
+        #         pred_outs['segm'] = self.semantic_seg_conv(outs[0])
+        #
+        #     return pred_outs
+        # else:
+        if True:
             if cfg.use_mask_scoring:
                 pred_outs['score'] = torch.sigmoid(pred_outs['score'])
 
@@ -700,7 +707,10 @@ if __name__ == '__main__':
     net.init_weights(backbone_path='weights/' + cfg.backbone.path)
 
     # GPU
-    net = net.cuda()
+    # net = net.cuda()
+    if torch.cuda.is_available():
+        net = net.cuda()
+    cudnn.benchmark = True
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
     x = torch.zeros((1, 3, cfg.max_size, cfg.max_size))
