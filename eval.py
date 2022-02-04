@@ -7,6 +7,7 @@ from utils import timer
 from utils.functions import SavePath
 from layers.output_utils import postprocess, undo_image_transformation
 import pycocotools
+from numpy.typing import NDArray
 
 from data import cfg, set_cfg, set_dataset
 
@@ -28,15 +29,6 @@ from collections import OrderedDict
 # import pdb
 import matplotlib.pyplot as plt
 import cv2
-
-args = ""
-def set_args(passed_args):
-    global args
-    args= passed_args
-
-def get_args():
-    global args
-    return args
 
 def str2bool(v):
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -653,9 +645,9 @@ def badhash(x):
     return x
 
 
-def evalimage(net: Yolact, path: str, save_path: str = None):
+def evalimage(net: Yolact, image: NDArray, save_path: str = None):
     # frame = torch.from_numpy(cv2.imread(path)).cuda().float()
-    frame = torch.from_numpy(cv2.imread(path)).float()
+    frame = torch.from_numpy(image).float()
     if torch.cuda.is_available():
         frame = frame.cuda()
     frame = frame.float()
